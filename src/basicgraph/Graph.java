@@ -120,10 +120,7 @@ public abstract class Graph {
 	 * 
 	 * @return The degree sequence of this graph.
 	 */
-	public List<Integer> degreeSequence() {
-		// XXX: Implement in part 1 of week 1
-		return null;
-	}
+	public abstract List<Integer> degreeSequence();
 	
 	/**
 	 * Get all the vertices that are 2 away from the vertex in question.
@@ -143,7 +140,7 @@ public abstract class Graph {
 		if (numVertices <= 20) s += adjacencyString();
 		return s;
 	}
-
+	
 	/**
 	 * Generate string representation of adjacency list
 	 * @return the String
@@ -230,10 +227,10 @@ public abstract class Graph {
 	public static void main (String[] args) {
 		GraphLoader.createIntersectionsFile("data/maps/myucsd.map", "data/intersections/myucsd.intersections");
 		
-
 		// For testing of Part 1 functionality
 		// Add your tests here to make sure your degreeSequence method is returning
 		// the correct list, after examining the graphs.
+
 		System.out.println("Loading graphs based on real data...");
 		System.out.println("Goal: use degree sequence to analyse graphs.");
 		
@@ -247,7 +244,7 @@ public abstract class Graph {
 		System.out.println("****");
 
 		System.out.println("\n****");
-		
+
 		// You can test with real road data here.  Use the data files in data/maps
 		
 		System.out.println("Flight data:");
@@ -256,7 +253,7 @@ public abstract class Graph {
 		System.out.println(airportGraph);
 		System.out.println("Observe most degrees are small (1-30), eight are over 100.");
 		System.out.println("****");
-		
+
 		//For testing Part 2 functionality
 		// Test your distance2 code here.
 		System.out.println("Testing distance-two methods on sample graphs...");

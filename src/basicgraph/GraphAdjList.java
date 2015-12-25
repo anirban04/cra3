@@ -1,7 +1,10 @@
 package basicgraph;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -96,8 +99,19 @@ public class GraphAdjList extends Graph {
 	 * @return List<Integer> a list of indices of vertices.  
 	 */		
 	 public List<Integer> getDistance2(int v) {
-		 // XXX: Implement this method in week 1
-		 return null;
+		 Set <Integer> set = new HashSet<Integer>();
+		 List <Integer> ret = new ArrayList<Integer>();
+		 List <Integer> n1, n2;
+		 n1 = getNeighbors(v);
+		 
+		 for (int n : n1) {
+			 n2 = getNeighbors(n);
+			 /* Using a set since it does not allow duplicates */
+			 set.addAll(n2);
+		 }
+		 
+		 ret.addAll(set);
+		 return ret;
 	}
 	
 	/**
@@ -116,8 +130,22 @@ public class GraphAdjList extends Graph {
 		}
 		return s;
 	}
-
-
-
-
+	
+	public List<Integer> degreeSequence() {
+		List <Integer> degree = new ArrayList<Integer>(); 
+		int temp = 0;
+		Set<Integer>keySet = adjListsMap.keySet();
+		for (Integer i : keySet) {
+			temp = getInNeighbors(i).size();
+			temp += getNeighbors(i).size();
+			degree.add(temp);
+			temp = 0;
+		}
+		Collections.sort(degree, new Comparator<Integer>() {
+			public int compare(Integer i1, Integer i2) {
+				return -i1.compareTo(i2);
+			}
+		});
+		return degree;
+	}
 }
