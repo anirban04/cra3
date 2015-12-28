@@ -193,6 +193,9 @@ public class MapGraph {
 		GeographicPoint node = goal;
 		while (!node.equals(start)) {
 			node = parentMap.get(node);
+			/* No path exists from start to goal */
+			if (node == null)
+				return null;
 			route.add(0, node);
 		}
 		return route;
