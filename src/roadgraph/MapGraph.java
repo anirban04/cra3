@@ -30,8 +30,8 @@ import util.GraphLoader;
  */
 public class MapGraph {
 	/* Use a Adjacency List to hold the graph */
-	Map<GeographicPoint, ArrayList<GeographicPoint>> adjLst;
-	int numVertices, numEdges;
+	private Map<GeographicPoint, ArrayList<GeographicPoint>> adjLst;
+	private int numVertices, numEdges;
 	
 	/** 
 	 * Create a new empty MapGraph 
