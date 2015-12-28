@@ -29,6 +29,7 @@ import util.GraphLoader;
  *
  */
 public class MapGraph {
+	/* Use a Adjacency List to hold the graph */
 	Map<GeographicPoint, ArrayList<GeographicPoint>> adjLst;
 	int numVertices, numEdges;
 	
@@ -55,8 +56,8 @@ public class MapGraph {
 	 */
 	public Set<GeographicPoint> getVertices()
 	{
-		/* Return a copy of the set of vertices since we do not want to expose
-		 * the internals of our graph implementation to the outside world */
+		/* Return a copy of the set of vertices. We this in order to
+		 * not expose the internals of our graph to the outside world */
 		return new HashSet<GeographicPoint>(adjLst.keySet());
 	}
 	
@@ -69,6 +70,9 @@ public class MapGraph {
 		return numEdges;
 	}
 
+	/** 
+	 * Helper method to check if a given vertex exists in the graph 
+	 */
 	private boolean hasVertex(GeographicPoint location) {
 		return adjLst.keySet().contains(location);
 	}
@@ -82,9 +86,12 @@ public class MapGraph {
 	 */
 	public boolean addVertex(GeographicPoint location)
 	{
+		/* Check if the vertex was already in 
+		 * the graph, or the parameter is null */
 		if ((location == null) || hasVertex(location))
 			return false;
 		
+		/* Add to graph and increment number of vertices */
 		adjLst.put(location, new ArrayList<GeographicPoint>());
 		numVertices++;
 		return true;
@@ -105,11 +112,16 @@ public class MapGraph {
 	public void addEdge(GeographicPoint from, GeographicPoint to, String roadName,
 			String roadType, double length) throws IllegalArgumentException {
 
+		/* Check for:
+		 * 1. The points have not already been added as nodes to the graph
+		 * 2. Any of the arguments is null 
+		 * 3. If the length is less than 0  */
 		if ((from == null) || (to == null) || 
 				(!hasVertex(to)) || (!hasVertex(from)) || 
 				(roadName == null) || (roadType == null) || (length < 0))
 			throw new IllegalArgumentException();
 		
+		/* Add to graph and increment number of edges */
 		adjLst.get(from).add(to);
 		numEdges++;
 	}
@@ -128,6 +140,64 @@ public class MapGraph {
         return bfs(start, goal, temp);
 	}
 	
+	/** 
+	 * Helper function to do the core work of the BFS algorithm
+	 * and generate the parent map.
+	 */ 
+	private Map<GeographicPoint, GeographicPoint> genParentMap(GeographicPoint start,
+		     GeographicPoint goal, Consumer<GeographicPoint> nodeSearched) {
+		
+		/* Initialize all the data structures needed for BFS */
+		Queue<GeographicPoint> q = new LinkedList<GeographicPoint>();
+		Set<GeographicPoint> visited = new HashSet<GeographicPoint>();
+		Map<GeographicPoint, GeographicPoint> parentMap = 
+				new HashMap<GeographicPoint, GeographicPoint>();
+
+		/* Add the starting node to the queue and mark it visited */
+		q.add(start);
+		visited.add(start);	
+		
+		/* Keep running till the queue becomes empty */
+		while (!q.isEmpty()) {
+			GeographicPoint cur = q.remove();
+			/* Report searched node to the consumer */
+			nodeSearched.accept(cur);
+			if (cur.equals(goal)) {
+				break;
+			}
+			/* Add every non-visited neighbor to the visited
+			 * list, the queue and the parent map */
+			List<GeographicPoint> neighbors = getNeighbors(cur);
+			for (GeographicPoint n : neighbors) {
+				if (!visited.contains(n)) {
+					visited.add(n);
+					q.add(n);
+					parentMap.put(n, cur);
+				}
+			}
+		}	
+		return parentMap;
+	}
+	
+	/** 
+	 * Helper function to generate the route based on the parent map
+	 */ 
+	private List<GeographicPoint> generateRoute(
+			Map<GeographicPoint, GeographicPoint> parentMap, 
+			GeographicPoint start, GeographicPoint goal) {
+		
+		List<GeographicPoint> route = new ArrayList<GeographicPoint>();
+		
+		/* Generate the path list by looking up in the parent map */
+		route.add(0, goal);
+		GeographicPoint node = goal;
+		while (!node.equals(start)) {
+			node = parentMap.get(node);
+			route.add(0, node);
+		}
+		return route;
+	}
+	
 	/** Find the path from start to goal using breadth first search
 	 * 
 	 * @param start The starting location
@@ -138,48 +208,18 @@ public class MapGraph {
 	 */
 	public List<GeographicPoint> bfs(GeographicPoint start, 
 			 					     GeographicPoint goal, Consumer<GeographicPoint> nodeSearched)
-	{
-		// TODO: Implement this method in WEEK 2
+	{	
+		/* Check sanity of arguments */
+		if ((start == null) || (goal == null) || (nodeSearched == null) || 
+				(!hasVertex(start)) || (!hasVertex(goal)))
+			return null;
 		
-		// Hook for visualization.  See writeup.
-		//nodeSearched.accept(next.getLocation());
+		/* Generate the parent Map */
+		Map<GeographicPoint, GeographicPoint> parentMap = 
+				genParentMap(start, goal, nodeSearched);
 		
-		Queue<GeographicPoint> q = new LinkedList<GeographicPoint>();
-		Set<GeographicPoint> visited = new HashSet<GeographicPoint>();
-		Map<GeographicPoint, GeographicPoint> parentMap = new HashMap<GeographicPoint, GeographicPoint>();
-		List<GeographicPoint> path = new ArrayList<GeographicPoint>();
-		
-		boolean goalFound = false;
-		
-		q.add(start);
-		visited.add(start);
-		
-		while (!q.isEmpty()) {
-			GeographicPoint cur = q.remove();
-			nodeSearched.accept(cur);
-			if (cur.equals(goal)) {
-				goalFound = true;
-				break;
-			}
-			List<GeographicPoint> neighbors = getNeighbors(cur);
-			for (GeographicPoint n : neighbors) {
-				if (!visited.contains(n)) {
-					visited.add(n);
-					q.add(n);
-					parentMap.put(n, cur);
-				}
-			}
-		}
-		
-		if (goalFound) {
-			path.add(0, goal);
-			GeographicPoint node = goal;
-			while (!node.equals(start)) {
-				node = parentMap.get(node);
-				path.add(0, node);
-			}
-		}
-		return path;
+		/* Generate the route based on the parent Map */
+		return generateRoute(parentMap, start, goal);
 	}
 	
 
