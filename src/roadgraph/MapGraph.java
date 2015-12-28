@@ -30,7 +30,7 @@ import util.GraphLoader;
  */
 public class MapGraph {
 	/* Use a Adjacency List to hold the graph */
-	private Map<GeographicPoint, ArrayList<GeographicPoint>> adjLst;
+	private Map<GeographicPoint, ArrayList<Edge>> adjLst;
 	private int numVertices, numEdges;
 	
 	/** 
@@ -38,7 +38,7 @@ public class MapGraph {
 	 */
 	public MapGraph()
 	{
-		adjLst = new HashMap<GeographicPoint, ArrayList<GeographicPoint>>();
+		adjLst = new HashMap<GeographicPoint, ArrayList<Edge>>();
 	}
 	
 	/**
@@ -92,7 +92,7 @@ public class MapGraph {
 			return false;
 		
 		/* Add to graph and increment number of vertices */
-		adjLst.put(location, new ArrayList<GeographicPoint>());
+		adjLst.put(location, new ArrayList<Edge>());
 		numVertices++;
 		return true;
 	}
@@ -121,8 +121,11 @@ public class MapGraph {
 				(roadName == null) || (roadType == null) || (length < 0))
 			throw new IllegalArgumentException();
 		
+		/* Create a new Edge object */
+		Edge e = new Edge(to.x, to.y, roadName, roadType, length);
+		
 		/* Add to graph and increment number of edges */
-		adjLst.get(from).add(to);
+		adjLst.get(from).add(e);
 		numEdges++;
 	}
 	
@@ -298,8 +301,8 @@ public class MapGraph {
 			sb.append(g);
 			sb.append("->");
 			sb.append("{");
-			ArrayList<GeographicPoint> lst = adjLst.get(g);
-			for (GeographicPoint j : lst)
+			ArrayList<Edge> lst = adjLst.get(g);
+			for (Edge j : lst)
 				sb.append(j + "| ");
 			sb.deleteCharAt(sb.length() - 1);
 			sb.deleteCharAt(sb.length() - 1);
