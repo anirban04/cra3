@@ -143,67 +143,6 @@ public class MapGraph {
         return bfs(start, goal, temp);
 	}
 	
-	/** 
-	 * Helper function to do the core work of the BFS algorithm
-	 * and generate the parent map.
-	 */ 
-	private Map<GeographicPoint, GeographicPoint> genParentMap(GeographicPoint start,
-		     GeographicPoint goal, Consumer<GeographicPoint> nodeSearched) {
-		
-		/* Initialize all the data structures needed for BFS */
-		Queue<GeographicPoint> q = new LinkedList<GeographicPoint>();
-		Set<GeographicPoint> visited = new HashSet<GeographicPoint>();
-		Map<GeographicPoint, GeographicPoint> parentMap = 
-				new HashMap<GeographicPoint, GeographicPoint>();
-
-		/* Add the starting node to the queue and mark it visited */
-		q.add(start);
-		visited.add(start);	
-		
-		/* Keep running till the queue becomes empty */
-		while (!q.isEmpty()) {
-			GeographicPoint cur = q.remove();
-			/* Report searched node to the consumer */
-			nodeSearched.accept(cur);
-			if (cur.equals(goal)) {
-				break;
-			}
-			/* Add every non-visited neighbor to the visited
-			 * list, the queue and the parent map */
-			List<GeographicPoint> neighbors = getNeighbors(cur);
-			for (GeographicPoint n : neighbors) {
-				if (!visited.contains(n)) {
-					visited.add(n);
-					q.add(n);
-					parentMap.put(n, cur);
-				}
-			}
-		}	
-		return parentMap;
-	}
-	
-	/** 
-	 * Helper function to generate the route based on the parent map
-	 */ 
-	private List<GeographicPoint> generateRoute(
-			Map<GeographicPoint, GeographicPoint> parentMap, 
-			GeographicPoint start, GeographicPoint goal) {
-		
-		List<GeographicPoint> route = new ArrayList<GeographicPoint>();
-		
-		/* Generate the path list by looking up in the parent map */
-		route.add(0, goal);
-		GeographicPoint node = goal;
-		while (!node.equals(start)) {
-			node = parentMap.get(node);
-			/* No path exists from start to goal */
-			if (node == null)
-				return null;
-			route.add(0, node);
-		}
-		return route;
-	}
-	
 	/** Find the path from start to goal using breadth first search
 	 * 
 	 * @param start The starting location
@@ -293,8 +232,10 @@ public class MapGraph {
 		return null;
 	}
 
+	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder("This is a Graph with " + getNumVertices() + " vertices and " +  getNumEdges() + " edges.");
+		StringBuilder sb = new StringBuilder("This is a Graph with " + 
+	getNumVertices() + " vertices and " +  getNumEdges() + " edges.");
 		sb.append("\n");
 		Set<GeographicPoint> nodeSet = adjLst.keySet();
 		for (GeographicPoint g : nodeSet) {
@@ -311,8 +252,72 @@ public class MapGraph {
 		return sb.toString();
 	}
 	
+	/** 
+	 * Helper function to get the neighbors for a given GeographicPoint
+	 */
 	private List<GeographicPoint> getNeighbors(GeographicPoint v) {
 		return new ArrayList<GeographicPoint>(adjLst.get(v));
+	}
+	
+	/** 
+	 * Helper function to do the core work of the BFS algorithm
+	 * and generate the parent map.
+	 */ 
+	private Map<GeographicPoint, GeographicPoint> genParentMap(GeographicPoint start,
+		     GeographicPoint goal, Consumer<GeographicPoint> nodeSearched) {
+		
+		/* Initialize all the data structures needed for BFS */
+		Queue<GeographicPoint> q = new LinkedList<GeographicPoint>();
+		Set<GeographicPoint> visited = new HashSet<GeographicPoint>();
+		Map<GeographicPoint, GeographicPoint> parentMap = 
+				new HashMap<GeographicPoint, GeographicPoint>();
+
+		/* Add the starting node to the queue and mark it visited */
+		q.add(start);
+		visited.add(start);	
+		
+		/* Keep running till the queue becomes empty */
+		while (!q.isEmpty()) {
+			GeographicPoint cur = q.remove();
+			/* Report searched node to the consumer */
+			nodeSearched.accept(cur);
+			if (cur.equals(goal)) {
+				break;
+			}
+			/* Add every non-visited neighbor to the visited
+			 * list, the queue and the parent map */
+			List<GeographicPoint> neighbors = getNeighbors(cur);
+			for (GeographicPoint n : neighbors) {
+				if (!visited.contains(n)) {
+					visited.add(n);
+					q.add(n);
+					parentMap.put(n, cur);
+				}
+			}
+		}	
+		return parentMap;
+	}
+	
+	/** 
+	 * Helper function to generate the route based on the parent map
+	 */ 
+	private List<GeographicPoint> generateRoute(
+			Map<GeographicPoint, GeographicPoint> parentMap, 
+			GeographicPoint start, GeographicPoint goal) {
+		
+		List<GeographicPoint> route = new ArrayList<GeographicPoint>();
+		
+		/* Generate the path list by looking up in the parent map */
+		route.add(0, goal);
+		GeographicPoint node = goal;
+		while (!node.equals(start)) {
+			node = parentMap.get(node);
+			/* No path exists from start to goal */
+			if (node == null)
+				return null;
+			route.add(0, node);
+		}
+		return route;
 	}
 	
 	public static void main(String[] args)
