@@ -9,11 +9,13 @@ package roadgraph;
 
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -30,7 +32,9 @@ import util.GraphLoader;
  */
 public class MapGraph {
 	/* Use a Adjacency List to hold the graph */
-	private Map<GeographicPoint, ArrayList<Edge>> adjLst;
+	private Map<Vertex, ArrayList<Vertex>> adjLst;
+	private Map<Edge, Double> edgeLen;
+	private Map<Vertex, Double> totLen;
 	private int numVertices, numEdges;
 	
 	/** 
@@ -38,7 +42,9 @@ public class MapGraph {
 	 */
 	public MapGraph()
 	{
-		adjLst = new HashMap<GeographicPoint, ArrayList<Edge>>();
+		adjLst = new HashMap<Vertex, ArrayList<Vertex>>();
+		edgeLen = new HashMap<Edge, Double>();
+		totLen = new HashMap<Vertex, Double>();
 	}
 	
 	/**
@@ -92,7 +98,9 @@ public class MapGraph {
 			return false;
 		
 		/* Add to graph and increment number of vertices */
-		adjLst.put(location, new ArrayList<Edge>());
+		adjLst.put(new Vertex(location.x, location.y, Double.MAX_VALUE), 
+				new ArrayList<Vertex>());
+		totLen.put(new Vertex(location.x, location.y, Double.MAX_VALUE), Double.MAX_VALUE);
 		numVertices++;
 		return true;
 	}
@@ -122,10 +130,11 @@ public class MapGraph {
 			throw new IllegalArgumentException();
 		
 		/* Create a new Edge object */
-		Edge e = new Edge(to.x, to.y, roadName, roadType, length);
+		Edge e = new Edge(from, to);
+		edgeLen.put(e, length);
 		
 		/* Add to graph and increment number of edges */
-		adjLst.get(from).add(e);
+		adjLst.get(from).add(new Vertex(to.x, to.y, Double.MAX_VALUE));
 		numEdges++;
 	}
 	
@@ -160,8 +169,8 @@ public class MapGraph {
 			return null;
 		
 		/* Generate the parent Map */
-		Map<GeographicPoint, GeographicPoint> parentMap = 
-				genParentMap(start, goal, nodeSearched);
+		Map<Vertex, Vertex> parentMap = 
+				bfsCore(start, goal, nodeSearched);
 		
 		/* Generate the route based on the parent Map */
 		return generateRoute(parentMap, start, goal);
@@ -193,12 +202,17 @@ public class MapGraph {
 	public List<GeographicPoint> dijkstra(GeographicPoint start, 
 										  GeographicPoint goal, Consumer<GeographicPoint> nodeSearched)
 	{
-		// TODO: Implement this method in WEEK 3
-
-		// Hook for visualization.  See writeup.
-		//nodeSearched.accept(next.getLocation());
+		/* Check sanity of arguments */
+		if ((start == null) || (goal == null) || (nodeSearched == null) || 
+				(!hasVertex(start)) || (!hasVertex(goal)))
+			return null;
 		
-		return null;
+		/* Generate the parent Map */
+		Map<Vertex, Vertex> parentMap = 
+				getParentMap(start, goal, nodeSearched, true);
+		
+		/* Generate the route based on the parent Map */
+			return generateRoute(parentMap, start, goal);
 	}
 
 	/** Find the path from start to goal using A-Star search
@@ -225,11 +239,17 @@ public class MapGraph {
 	public List<GeographicPoint> aStarSearch(GeographicPoint start, 
 											 GeographicPoint goal, Consumer<GeographicPoint> nodeSearched)
 	{
-		// TODO: Implement this method in WEEK 3
+		/* Check sanity of arguments */
+		if ((start == null) || (goal == null) || (nodeSearched == null) || 
+				(!hasVertex(start)) || (!hasVertex(goal)))
+			return null;
 		
-		// Hook for visualization.  See writeup.
-		//nodeSearched.accept(next.getLocation());
-		return null;
+		/* Generate the parent Map */
+		Map<Vertex, Vertex> parentMap = 
+				getParentMap(start, goal, nodeSearched, false);
+		
+		/* Generate the route based on the parent Map */
+			return generateRoute(parentMap, start, goal);
 	}
 
 	@Override
@@ -237,13 +257,13 @@ public class MapGraph {
 		StringBuilder sb = new StringBuilder("This is a Graph with " + 
 	getNumVertices() + " vertices and " +  getNumEdges() + " edges.");
 		sb.append("\n");
-		Set<GeographicPoint> nodeSet = adjLst.keySet();
+		Set<Vertex> nodeSet = adjLst.keySet();
 		for (GeographicPoint g : nodeSet) {
 			sb.append(g);
 			sb.append("->");
 			sb.append("{");
-			ArrayList<Edge> lst = adjLst.get(g);
-			for (Edge j : lst)
+			ArrayList<Vertex> lst = adjLst.get(g);
+			for (Vertex j : lst)
 				sb.append(j + "| ");
 			sb.deleteCharAt(sb.length() - 1);
 			sb.deleteCharAt(sb.length() - 1);
@@ -255,30 +275,120 @@ public class MapGraph {
 	/** 
 	 * Helper function to get the neighbors for a given GeographicPoint
 	 */
-	private List<GeographicPoint> getNeighbors(GeographicPoint v) {
-		return new ArrayList<GeographicPoint>(adjLst.get(v));
+	private List<Vertex> getNeighbors(Vertex v) {
+		return new ArrayList<Vertex>(adjLst.get(v));
+	}
+	
+	/** 
+	 * Helper function to do the core work of the Dijkstra algorithm
+	 * and generate the parent map.
+	 */ 
+	private Map<Vertex, Vertex> getParentMap(GeographicPoint start,
+		     GeographicPoint goal, 
+		     Consumer<GeographicPoint> nodeSearched, 
+		     boolean isDijkstra) {
+		
+		/* Initialize the parent map */
+		Map<Vertex, Vertex> parentMap = new HashMap<Vertex, Vertex>();
+		PriorityQueue<Vertex> pQue;
+		
+		/* Based on whether we are using dijkstra or astar, initialize the 
+		 * PriorityQUeue. For Dijkstra, the comparable interface's implemented 
+		 * compareTo() method will be used (from vertex class). Whereas for 
+		 * astar, we provide a comparator object while initializing the 
+		 * PriorityQueue.*/
+		if (isDijkstra)
+			pQue = new PriorityQueue<Vertex>();
+		else
+			/* For astar, the comparison function not only takes into account
+			 * the distance from start, but also the distance (direct) to the
+			 * goal. */
+			pQue = new PriorityQueue<Vertex>(new Comparator<Vertex>() {
+				public int compare(Vertex v1, Vertex v2) {
+					double v1Dist = v1.getTotalDist() + v1.distance(goal);
+					double v2Dist = v2.getTotalDist() + v2.distance(goal);
+					if (v1Dist > v2Dist) {
+						return 1;
+					}
+					else if (v1Dist < v2Dist) {
+						return -1;
+					}
+					else
+						return 0;
+				}
+			});
+			
+		/* Initialize all elements in the priority queue to be Infinite priority */
+		for (Vertex v : adjLst.keySet()) {
+			pQue.add(v);
+		}
+		
+		/* Initialize the visited set */
+		Set<Vertex> visited = new HashSet<Vertex>();
+		
+		/* Add the Start vertex to the PriorityQueue */
+		pQue.add(new Vertex(start.x, start.y, 0));
+		
+		while (!pQue.isEmpty()) {
+			/* deque into curr */
+			Vertex cur = pQue.remove();
+			nodeSearched.accept(cur);
+			/* check if cur has been visited */
+			if (!visited.contains(cur)) {
+				/* Add cur to visited */
+				visited.add(cur);
+				/* If cur is goal we are done */
+				if (cur.equals(goal))
+					break;
+				/* For every neighbor of cur not in visited set */
+				List<Vertex> neighbors = getNeighbors(cur);
+				for (Vertex n : neighbors) {
+					if (!visited.contains(n)) {
+						Edge e = new Edge(cur, n);
+						double totalDist = cur.getTotalDist() + edgeLen.get(e);
+						/* Check if distance to n through cur is 
+						 * lesser than through any earlier paths */
+						if (totalDist < totLen.get(n)) {
+							/* Update the distance to n in the totLen map */
+							totLen.replace(n, totLen.get(n), totalDist);
+							/* Set the total distance of the vertex as well */
+							n.setTotalDist(totalDist);
+							/* Add the vertex to the priority queue */
+							pQue.add(n);
+							/* If the parent map already contains a
+							 * mapping for n, remove that mapping */
+							if (parentMap.containsKey(n))
+								parentMap.remove(n);
+							/* Add the new mapping */
+							parentMap.put(n, cur);
+						}
+					}
+				}
+			}
+		}
+		return parentMap;
 	}
 	
 	/** 
 	 * Helper function to do the core work of the BFS algorithm
 	 * and generate the parent map.
 	 */ 
-	private Map<GeographicPoint, GeographicPoint> genParentMap(GeographicPoint start,
+	private Map<Vertex, Vertex> bfsCore(GeographicPoint start,
 		     GeographicPoint goal, Consumer<GeographicPoint> nodeSearched) {
 		
 		/* Initialize all the data structures needed for BFS */
-		Queue<GeographicPoint> q = new LinkedList<GeographicPoint>();
-		Set<GeographicPoint> visited = new HashSet<GeographicPoint>();
-		Map<GeographicPoint, GeographicPoint> parentMap = 
-				new HashMap<GeographicPoint, GeographicPoint>();
+		Queue<Vertex> q = new LinkedList<Vertex>();
+		Set<Vertex> visited = new HashSet<Vertex>();
+		Map<Vertex, Vertex> parentMap = 
+				new HashMap<Vertex, Vertex>();
 
 		/* Add the starting node to the queue and mark it visited */
-		q.add(start);
-		visited.add(start);	
+		q.add(new Vertex (start.x, start.y, Double.MAX_VALUE));
+		visited.add(new Vertex (start.x, start.y, Double.MAX_VALUE));	
 		
 		/* Keep running till the queue becomes empty */
 		while (!q.isEmpty()) {
-			GeographicPoint cur = q.remove();
+			Vertex cur = q.remove();
 			/* Report searched node to the consumer */
 			nodeSearched.accept(cur);
 			if (cur.equals(goal)) {
@@ -286,8 +396,8 @@ public class MapGraph {
 			}
 			/* Add every non-visited neighbor to the visited
 			 * list, the queue and the parent map */
-			List<GeographicPoint> neighbors = getNeighbors(cur);
-			for (GeographicPoint n : neighbors) {
+			List<Vertex> neighbors = getNeighbors(cur);
+			for (Vertex n : neighbors) {
 				if (!visited.contains(n)) {
 					visited.add(n);
 					q.add(n);
@@ -302,14 +412,16 @@ public class MapGraph {
 	 * Helper function to generate the route based on the parent map
 	 */ 
 	private List<GeographicPoint> generateRoute(
-			Map<GeographicPoint, GeographicPoint> parentMap, 
+			Map<Vertex, Vertex> parentMap, 
 			GeographicPoint start, GeographicPoint goal) {
 		
 		List<GeographicPoint> route = new ArrayList<GeographicPoint>();
 		
-		/* Generate the path list by looking up in the parent map */
+		/* First Add the goal to the path */
 		route.add(0, goal);
 		GeographicPoint node = goal;
+		/* Then add the remaining vertices to the
+		 * path by looking up in the parent map */
 		while (!node.equals(start)) {
 			node = parentMap.get(node);
 			/* No path exists from start to goal */
@@ -325,10 +437,16 @@ public class MapGraph {
 		System.out.print("Making a new map...");
 		MapGraph theMap = new MapGraph();
 		System.out.print("DONE. \nLoading the map...");
-		GraphLoader.loadRoadMap("data/testdata/simpletest.map", theMap);
+		GraphLoader.createIntersectionsFile("data/testdata/simpletest2.map", 
+                "data/intersections/simpletest2.intersections");
+		GraphLoader.loadRoadMap("data/testdata/simpletest2.map", theMap);
 		System.out.println("DONE.");
-		System.out.println(theMap);
-		List<GeographicPoint> path =  theMap.bfs(new GeographicPoint(8,-1), new GeographicPoint(8, -1));
+		//System.out.println(theMap);
+		List<GeographicPoint> path =  theMap.dijkstra(new GeographicPoint(4, 0), new GeographicPoint(8, -1));
+		
+		System.out.println();
+		System.out.println();
+		System.out.println();
 		for (GeographicPoint p : path) {
 			System.out.println(p);
 		}
