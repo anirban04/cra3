@@ -44,7 +44,6 @@ public class MapGraph {
 	{
 		adjLst = new HashMap<Vertex, ArrayList<Vertex>>();
 		edgeLen = new HashMap<Edge, Double>();
-		totLen = new HashMap<Vertex, Double>();
 	}
 	
 	/**
@@ -100,7 +99,6 @@ public class MapGraph {
 		/* Add to graph and increment number of vertices */
 		adjLst.put(new Vertex(location.x, location.y, Double.MAX_VALUE), 
 				new ArrayList<Vertex>());
-		totLen.put(new Vertex(location.x, location.y, Double.MAX_VALUE), Double.MAX_VALUE);
 		numVertices++;
 		return true;
 	}
@@ -288,6 +286,12 @@ public class MapGraph {
 		     Consumer<GeographicPoint> nodeSearched, 
 		     boolean isDijkstra) {
 		
+		/* Initialize the total length map */
+		totLen = new HashMap<Vertex, Double>();		
+		for (Map.Entry<Vertex, ArrayList<Vertex>> e : adjLst.entrySet()) {
+			totLen.put(e.getKey(), Double.MAX_VALUE);
+		}
+		
 		/* Initialize the parent map */
 		Map<Vertex, Vertex> parentMap = new HashMap<Vertex, Vertex>();
 		PriorityQueue<Vertex> pQue;
@@ -299,6 +303,7 @@ public class MapGraph {
 		 * PriorityQueue.*/
 		if (isDijkstra)
 			pQue = new PriorityQueue<Vertex>();
+
 		else
 			/* For astar, the comparison function not only takes into account
 			 * the distance from start, but also the distance (direct) to the
@@ -375,7 +380,6 @@ public class MapGraph {
 	 */ 
 	private Map<Vertex, Vertex> bfsCore(GeographicPoint start,
 		     GeographicPoint goal, Consumer<GeographicPoint> nodeSearched) {
-		
 		/* Initialize all the data structures needed for BFS */
 		Queue<Vertex> q = new LinkedList<Vertex>();
 		Set<Vertex> visited = new HashSet<Vertex>();
@@ -404,7 +408,7 @@ public class MapGraph {
 					parentMap.put(n, cur);
 				}
 			}
-		}	
+		}
 		return parentMap;
 	}
 	
@@ -434,6 +438,7 @@ public class MapGraph {
 	
 	public static void main(String[] args)
 	{
+		/*
 		System.out.print("Making a new map...");
 		MapGraph theMap = new MapGraph();
 		System.out.print("DONE. \nLoading the map...");
@@ -441,31 +446,20 @@ public class MapGraph {
                 "data/intersections/simpletest2.intersections");
 		GraphLoader.loadRoadMap("data/testdata/simpletest2.map", theMap);
 		System.out.println("DONE.");
-		//System.out.println(theMap);
 		List<GeographicPoint> path =  theMap.dijkstra(new GeographicPoint(4, 0), new GeographicPoint(8, -1));
-		
-		System.out.println();
-		System.out.println();
-		System.out.println();
-		for (GeographicPoint p : path) {
-			System.out.println(p);
-		}
+		*/
 		// You can use this method for testing.  
 		
-		/* Use this code in Week 3 End of Week Quiz
+		/* Use this code in Week 3 End of Week Quiz */
 		MapGraph theMap = new MapGraph();
 		System.out.print("DONE. \nLoading the map...");
 		GraphLoader.loadRoadMap("data/maps/utc.map", theMap);
 		System.out.println("DONE.");
 
-		GeographicPoint start = new GeographicPoint(32.868629, -117.215393);
-		GeographicPoint end = new GeographicPoint(32.868629, -117.215393);
-		
+		GeographicPoint start = new GeographicPoint(32.8648772, -117.2254046);
+		GeographicPoint end = new GeographicPoint(32.8660691, -117.217393);
+
 		List<GeographicPoint> route = theMap.dijkstra(start,end);
 		List<GeographicPoint> route2 = theMap.aStarSearch(start,end);
-
-		*/
-		
 	}
-	
 }
