@@ -34,7 +34,6 @@ public class MapGraph {
 	/* Use a Adjacency List to hold the graph */
 	private Map<Vertex, ArrayList<Vertex>> adjLst;
 	private Map<Edge, Double> edgeLen;
-	private Map<Vertex, Double> totLen;
 	private int numVertices, numEdges;
 	
 	/** 
@@ -287,7 +286,7 @@ public class MapGraph {
 		     boolean isDijkstra) {
 		
 		/* Initialize the total length map */
-		totLen = new HashMap<Vertex, Double>();		
+		Map<Vertex, Double> totLen = new HashMap<Vertex, Double>();		
 		for (Map.Entry<Vertex, ArrayList<Vertex>> e : adjLst.entrySet()) {
 			totLen.put(e.getKey(), Double.MAX_VALUE);
 		}
