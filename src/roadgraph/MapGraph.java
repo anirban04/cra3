@@ -33,8 +33,13 @@ import util.GraphLoader;
 public class MapGraph {
 	/* Use a Adjacency List to hold the graph */
 	private Map<Vertex, ArrayList<Vertex>> adjLst;
-	private Map<Edge, Double> edgeLen;
+	private Map<Edge, EdgeProp> edgeProp;
+	private Map<String, Double> roadSpeed;
 	private int numVertices, numEdges;
+	private static final boolean timeBasedDijkstra = true;
+	private enum Algorithm {
+		DIJKSTRA, ASTAR, TIMEBASEDDIJKSTRA
+	}
 	
 	/** 
 	 * Create a new empty MapGraph 
@@ -42,7 +47,24 @@ public class MapGraph {
 	public MapGraph()
 	{
 		adjLst = new HashMap<Vertex, ArrayList<Vertex>>();
-		edgeLen = new HashMap<Edge, Double>();
+		edgeProp = new HashMap<Edge, EdgeProp>();
+		roadSpeed = new HashMap<String, Double>();
+		
+		/* Initialize the road speed map based on approximate values */
+		roadSpeed.put("motorway", 65.0);
+		roadSpeed.put("motorway_link", 65.0);
+		roadSpeed.put("trunk", 50.0);
+		roadSpeed.put("trunk_link", 65.0);
+		roadSpeed.put("primary", 45.0);
+		roadSpeed.put("primary_link", 45.0);
+		roadSpeed.put("secondary", 40.0);
+		roadSpeed.put("secondary_link", 40.0);
+		roadSpeed.put("tertiary", 35.0);
+		roadSpeed.put("tertiary_link", 35.0);
+		roadSpeed.put("unclassified", 25.0);
+		roadSpeed.put("residential", 25.0);
+		roadSpeed.put("living_street", 25.0);
+		roadSpeed.put("service", 15.0);
 	}
 	
 	/**
@@ -96,7 +118,7 @@ public class MapGraph {
 			return false;
 		
 		/* Add to graph and increment number of vertices */
-		adjLst.put(new Vertex(location.x, location.y, Double.MAX_VALUE), 
+		adjLst.put(new Vertex(location.x, location.y, Double.MAX_VALUE, Double.MAX_VALUE), 
 				new ArrayList<Vertex>());
 		numVertices++;
 		return true;
@@ -128,10 +150,11 @@ public class MapGraph {
 		
 		/* Create a new Edge object */
 		Edge e = new Edge(from, to);
-		edgeLen.put(e, length);
+		EdgeProp ep = new EdgeProp(length, roadType);
+		edgeProp.put(e, ep);
 		
 		/* Add to graph and increment number of edges */
-		adjLst.get(from).add(new Vertex(to.x, to.y, Double.MAX_VALUE));
+		adjLst.get(from).add(new Vertex(to.x, to.y, Double.MAX_VALUE, Double.MAX_VALUE));
 		numEdges++;
 	}
 	
@@ -199,14 +222,21 @@ public class MapGraph {
 	public List<GeographicPoint> dijkstra(GeographicPoint start, 
 										  GeographicPoint goal, Consumer<GeographicPoint> nodeSearched)
 	{
+		Map<Vertex, Vertex> parentMap;
+		
 		/* Check sanity of arguments */
 		if ((start == null) || (goal == null) || (nodeSearched == null) || 
 				(!hasVertex(start)) || (!hasVertex(goal)))
 			return null;
 		
-		/* Generate the parent Map */
-		Map<Vertex, Vertex> parentMap = 
-				getParentMap(start, goal, nodeSearched, true);
+		if (timeBasedDijkstra) {
+			/* Generate the parent Map */
+			parentMap = getParentMap(start, goal, nodeSearched, Algorithm.TIMEBASEDDIJKSTRA);
+		}
+		else {
+			/* Generate the parent Map */
+			parentMap = getParentMap(start, goal, nodeSearched, Algorithm.DIJKSTRA);
+		}
 		
 		/* Generate the route based on the parent Map */
 			return generateRoute(parentMap, start, goal);
@@ -243,7 +273,7 @@ public class MapGraph {
 		
 		/* Generate the parent Map */
 		Map<Vertex, Vertex> parentMap = 
-				getParentMap(start, goal, nodeSearched, false);
+				getParentMap(start, goal, nodeSearched, Algorithm.ASTAR);
 		
 		/* Generate the route based on the parent Map */
 			return generateRoute(parentMap, start, goal);
@@ -276,34 +306,35 @@ public class MapGraph {
 		return new ArrayList<Vertex>(adjLst.get(v));
 	}
 	
+	
 	/** 
-	 * Helper function to do the core work of the Dijkstra algorithm
-	 * and generate the parent map.
+	 * Helper function to do initialize the Data Structures used in 
+	 * generating the parent map.
 	 */ 
-	private Map<Vertex, Vertex> getParentMap(GeographicPoint start,
-		     GeographicPoint goal, 
-		     Consumer<GeographicPoint> nodeSearched, 
-		     boolean isDijkstra) {
+	private PriorityQueue<Vertex> initDS (Map<Vertex, Double> totLen, Map<Vertex, Double> totTime,
+			GeographicPoint goal, Algorithm algo) {
 		
-		/* Initialize the total length map */
-		Map<Vertex, Double> totLen = new HashMap<Vertex, Double>();		
-		for (Map.Entry<Vertex, ArrayList<Vertex>> e : adjLst.entrySet()) {
-			totLen.put(e.getKey(), Double.MAX_VALUE);
-		}
-		
-		/* Initialize the parent map */
-		Map<Vertex, Vertex> parentMap = new HashMap<Vertex, Vertex>();
 		PriorityQueue<Vertex> pQue;
+		/* Initialize the total length map */
+		if (algo != Algorithm.TIMEBASEDDIJKSTRA)
+			for (Map.Entry<Vertex, ArrayList<Vertex>> e : adjLst.entrySet())
+				totLen.put(e.getKey(), Double.MAX_VALUE);
+		else
+			/* Initialize the total time map */
+			for (Map.Entry<Vertex, ArrayList<Vertex>> e : adjLst.entrySet())
+				totTime.put(e.getKey(), Double.MAX_VALUE);
 		
 		/* Based on whether we are using dijkstra or astar, initialize the 
 		 * PriorityQUeue. For Dijkstra, the comparable interface's implemented 
 		 * compareTo() method will be used (from vertex class). Whereas for 
 		 * astar, we provide a comparator object while initializing the 
 		 * PriorityQueue.*/
-		if (isDijkstra)
+		
+		/* algo = 0 indicates Dijkstra */
+		if (algo == Algorithm.DIJKSTRA)
 			pQue = new PriorityQueue<Vertex>();
-
-		else
+		/* algo = 1 indicates astar */
+		else if (algo == Algorithm.ASTAR) {
 			/* For astar, the comparison function not only takes into account
 			 * the distance from start, but also the distance (direct) to the
 			 * goal. */
@@ -321,17 +352,52 @@ public class MapGraph {
 						return 0;
 				}
 			});
+		}
+		/* algo == TIMEBASEDDIJKSTRA */
+		else {
+			/* For time based Dijkstra use totalTime in the comparator */
+			pQue = new PriorityQueue<Vertex>(new Comparator<Vertex>() {
+				public int compare(Vertex v1, Vertex v2) {
+					if (v1.getTotalTime() > v2.getTotalTime()) {
+						return 1;
+					}
+					else if (v1.getTotalTime() < v2.getTotalTime()) {
+						return -1;
+					}
+					else
+						return 0;
+				}
+			});
+		}
 			
 		/* Initialize all elements in the priority queue to be Infinite priority */
 		for (Vertex v : adjLst.keySet()) {
 			pQue.add(v);
 		}
+		return pQue;
+	}
+	
+	
+	/** 
+	 * Helper function to do the core work of the Dijkstra algorithm
+	 * and generate the parent map.
+	 */ 
+	private Map<Vertex, Vertex> getParentMap(GeographicPoint start,
+		     GeographicPoint goal, 
+		     Consumer<GeographicPoint> nodeSearched, 
+		     Algorithm algo) {
 		
-		/* Initialize the visited set */
+		/* Below Data Structures are created for quick access */
+		Map<Vertex, Double> totLen = new HashMap<Vertex, Double>();
+		Map<Vertex, Double> totTime = new HashMap<Vertex, Double>();
+		
+		Map<Vertex, Vertex> parentMap = new HashMap<Vertex, Vertex>();
 		Set<Vertex> visited = new HashSet<Vertex>();
 		
+		/* Init the required Data Structures */
+		PriorityQueue<Vertex> pQue = initDS(totLen, totTime, goal, algo);
 		/* Add the Start vertex to the PriorityQueue */
-		pQue.add(new Vertex(start.x, start.y, 0));
+		pQue.add(new Vertex(start.x, start.y, 0, 0));
 		
 		while (!pQue.isEmpty()) {
 			/* deque into curr */
@@ -349,14 +415,40 @@ public class MapGraph {
 				for (Vertex n : neighbors) {
 					if (!visited.contains(n)) {
 						Edge e = new Edge(cur, n);
-						double totalDist = cur.getTotalDist() + edgeLen.get(e);
+						double totalTime = 0, totalDist = 0;
+						if (algo == Algorithm.TIMEBASEDDIJKSTRA) {
+							Double edgeSpeed = roadSpeed.get(edgeProp.get(e).getType());
+							if (edgeSpeed == null)
+								edgeSpeed = 25.0;
+							totalTime = cur.getTotalTime() + 
+									edgeProp.get(e).getLength() / edgeSpeed;
+						}
+						else
+							totalDist = cur.getTotalDist() + edgeProp.get(e).getLength();
+						
 						/* Check if distance to n through cur is 
 						 * lesser than through any earlier paths */
-						if (totalDist < totLen.get(n)) {
+						if ((algo != Algorithm.TIMEBASEDDIJKSTRA) && (totalDist < totLen.get(n))) {
 							/* Update the distance to n in the totLen map */
 							totLen.replace(n, totLen.get(n), totalDist);
 							/* Set the total distance of the vertex as well */
 							n.setTotalDist(totalDist);
+							
+							/* Add the vertex to the priority queue */
+							pQue.add(n);
+							/* If the parent map already contains a
+							 * mapping for n, remove that mapping */
+							if (parentMap.containsKey(n))
+								parentMap.remove(n);
+							/* Add the new mapping */
+							parentMap.put(n, cur);
+						}
+						else if ((algo == Algorithm.TIMEBASEDDIJKSTRA) && (totalTime < totTime.get(n))) {
+							/* Update the time to n in the totTime map */
+							totTime.replace(n, totTime.get(n), totalDist);
+							/* Set the total time of the vertex as well */
+							n.setTotalTime(totalTime);
+							
 							/* Add the vertex to the priority queue */
 							pQue.add(n);
 							/* If the parent map already contains a
@@ -386,8 +478,8 @@ public class MapGraph {
 				new HashMap<Vertex, Vertex>();
 
 		/* Add the starting node to the queue and mark it visited */
-		q.add(new Vertex (start.x, start.y, Double.MAX_VALUE));
-		visited.add(new Vertex (start.x, start.y, Double.MAX_VALUE));	
+		q.add(new Vertex (start.x, start.y, Double.MAX_VALUE, Double.MAX_VALUE));
+		visited.add(new Vertex (start.x, start.y, Double.MAX_VALUE, Double.MAX_VALUE));	
 		
 		/* Keep running till the queue becomes empty */
 		while (!q.isEmpty()) {

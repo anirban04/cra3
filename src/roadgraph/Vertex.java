@@ -4,7 +4,16 @@ package roadgraph;
 public class Vertex extends geography.GeographicPoint implements Comparable<Vertex>{
 
 	private double totalDist;
+	private double totalTime;
 	
+	public double getTotalTime() {
+		return totalTime;
+	}
+
+	public void setTotalTime(double totalTime) {
+		this.totalTime = totalTime;
+	}
+
 	public double getTotalDist() {
 		return totalDist;
 	}
@@ -13,9 +22,10 @@ public class Vertex extends geography.GeographicPoint implements Comparable<Vert
 		this.totalDist = totalDist;
 	}
 
-	public Vertex(double latitude, double longitude, double totalDist) {
+	public Vertex(double latitude, double longitude, double totalDist, double totalTime) {
 		super(latitude, longitude);
 		this.totalDist = totalDist;
+		this.totalTime = totalTime;
 	}
 	
 	public int compareTo(Vertex v) {
